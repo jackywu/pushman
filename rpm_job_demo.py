@@ -23,7 +23,7 @@ job = {
                 'restart_command': '/etc/init.d/nginx restart',
                 'reload_command': '/etc/init.d/nginx reload',
                 'backup_previous_package': False,
-                'remove_previous_package': False,
+                'remove_previous_package': True,
             },
 
             'pre_deploy_desc': {

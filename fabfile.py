@@ -11,6 +11,7 @@ from lb import LoadBalancer
 from monitor import Monitor
 import fabric.contrib.files as fab_files
 import fab_utils
+import sys
 from log import Log
 
 glog = Log('pushman.log', 'PushMan').open_log()
@@ -128,7 +129,7 @@ class Pushman(object):
                 extra_param = ' --force --nodeps '
             else:
                 extra_param = ''
-            fab_utils.run_check_failed('rpm -i %s %s' % (extra_param, self.file_path_cs), 'rpm install failed')
+            fab_utils.run_check_failed('rpm -U %s %s' % (extra_param, self.file_path_cs), 'rpm install failed')
         else:
             fab_utils.extract_check_failed(self.file_path_cs, install_dir)
 
@@ -175,15 +176,20 @@ class Pushman(object):
         resource = self.global_desc['resource_rollback_to']
         self.do_deploy(resource)
 
-def handle():
-
+def handle(action='update'):
+    allowed_action = ['update', 'rollback']
+    if action not in allowed_action:
+        sys.exit('action %s is illegal, allowed action are %s' % (action, allowed_action))
 
     job = rpm_job_demo.job
 
     pm = Pushman(job)
 
     try:
-        pm.update()
+        if action == 'update':
+            pm.update()
+        elif action == 'rollback':
+            pm.rollback()
     except Exception as e:
         if job['desc']['global_desc']['auto_rollback']:
             pm.rollback()

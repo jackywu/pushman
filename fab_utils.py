@@ -33,3 +33,24 @@ def extract_check_failed(file_path, install_dir):
     with cd(dir_name):
         run_check_failed(cmd, 'extract %s failed' % file_path)
         run_check_failed('mv package_name %s' % install_dir, 'mv to install_dir %s failed' % install_dir)
+
+def run_custom_script(script_path='', path_root='', install_action='rpm', stage='deploy'):
+    custom_script = script_path.strip()
+    if path_root.endswith('/'):
+        path_root = path_root.rstrip('/')
+
+    if custom_script != '':
+        if os.path.isabs(custom_script):
+            custom_script_path = custom_script
+        else:
+            if install_action == 'rpm':
+                raise Exception('when install by rpm, script path should be a absolute path at stage %s' % stage)
+            custom_script_path = '%s/%s' % (path_root, custom_script)
+
+        if fab_files.exists(custom_script_path):
+            # TODO: chmod does not work on windows
+            fab_utils.run_check_failed('chmod +x %s' % custom_script_path, 'chmod x failed at stage %s' % stage)
+            fab_utils.run_check_failed(custom_script_path, 'exec custom_pre_deploy_script failed at stage %s' % stage)
+        else:
+            raise Exception('custom_pre_deploy_script %s does not exist' % custom_script_path)
+

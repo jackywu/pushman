@@ -80,14 +80,6 @@ class Pushman(object):
         if self.pre_deploy_desc['disable_monitoring']:
             Monitor().disable()
 
-        # execute custom_pre_deploy_script
-        custom_script = self.pre_deploy_desc.get('custom_pre_deploy_script')
-        custom_script_path = '%s/%s' % (self.instance_dir_cs, custom_script)
-        if custom_script and fab_files.exists(custom_script_path):
-            # TODO: chmod does not work on windows
-            fab_utils.run_check_failed('chmod +x %s' % custom_script_path, 'chmod x failed')
-            fab_utils.run_check_failed(custom_script_path, 'exec custom_pre_deploy_script failed')
-
         pass
 
     def deploy(self):
@@ -107,7 +99,7 @@ class Pushman(object):
                 raise Exception('illegal install dir %s' % install_dir)
 
         # backup previous package
-        if self.global_desc['backup_previous_package']:
+        if self.deploy_desc['backup_previous_package']:
             backup_dir = "%s/%s" % (self.ClientBackupRoot, self.config['id'])
             fab_utils.run_check_failed("mkdir -p %s" % backup_dir, 'create backup env failed')
 
@@ -115,11 +107,15 @@ class Pushman(object):
                                       'backup previous failed')
 
         # remove previous package
-        if self.global_desc['remove_previous_package']:
+        if self.deploy_desc['remove_previous_package']:
             if self.global_desc['install_action'] == 'rpm':
-                package_full_name = self.global_desc['resource_update_to'].split('/')[-1]
-                package_name = package_full_name.split('-')[0]
-                fab_utils.run_check_failed('rpm -e %s' % package_name, 'rpm remove previous package failed')
+                package_full_name = self.global_desc['resource_update_to'].split('/')[-1] # nginx-1.6.1-1.el6.ngx.x86_64.rpm
+                package_name = package_full_name.split('-')[0] # nginx
+                package_prefix = package_name.rstrip('.rpm') # nginx-1.6.1-1.el6.ngx.x86_64
+
+                # package does exist and remove it
+                if run('rpm -q --quiet %s' % package_prefix).succeeded:
+                    fab_utils.run_check_failed('rpm -e %s' % package_name, 'rpm remove previous package failed')
             else:
                 fab_utils.run_check_failed('rm -rf %s' % install_dir, 'rm previous package failed')
 
@@ -134,16 +130,10 @@ class Pushman(object):
             fab_utils.extract_check_failed(self.file_path_cs, install_dir)
 
         # update configuration
-        update_config_script = self.deploy_desc.get('update_configuration_script', '').strip()
-        if update_config_script.strip() != '':
-            if os.path.isabs(update_config_script):
-                update_config_script_path = update_config_script
-            else:
-                if self.global_desc['install_action'] == 'rpm':
-                    raise Exception('when install by rpm, update_configuration_script should be a absolute path')
-                update_config_script_path = '%s/%s' % (install_dir, update_config_script)
-
-            fab_utils.run_check_failed(update_config_script_path, 'run update_configuration_script failed')
+        fab_utils.run_custom_script(self.deploy_desc.get('update_configuration_script', ''),
+                                    self.global_desc.get('install_dir', ''),
+                                    'rpm',
+                                    'deploy')
 
         # bring up service
         if self.deploy_desc['stop_service']:
@@ -152,15 +142,23 @@ class Pushman(object):
         else:
             if self.deploy_desc['start_service']:
                 if self.global_desc.get('restart_command'):
-                    fab_utils.run_check_failed(self.global_desc['restart_command'], 'restart service failed')
+                    fab_utils.run_check_failed(self.global_desc['restart_command'], 
+                                               'restart service failed')
                 else:
-                    fab_utils.run_check_failed('%s && %s' % (self.global_desc['stop_command'], self.global_desc['start_command']), 'stop of restart service failed')
+                    fab_utils.run_check_failed('%s && %s' % (self.global_desc['stop_command'], 
+                                                             self.global_desc['start_command']), 
+                                                             'stop of restart service failed')
 
 
         pass
 
     def post_deploy(self):
-        pass
+        # exec custom script
+        fab_utils.run_custom_script(self.post_deploy_desc.get('custom_post_deploy_script', ''),
+                                    self.global_desc.get('install_dir', ''),
+                                    'rpm',
+                                    'post_deploy')
+
 
     def do_deploy(self, resource):
         self.prepare(resource)

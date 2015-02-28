@@ -4,7 +4,7 @@
 from __future__ import with_statement
 import os
 import urllib2
-import job_demo
+import rpm_job_demo
 from fabric.operations import run, put
 from fabric.api import local, settings, abort, env
 from lb import LoadBalancer
@@ -52,14 +52,10 @@ class Pushman(object):
     def upload(self):
         self.instance_dir_cs = '%s/%s' % (self.ClientRoot, self.config['id'])
 
-        fab_utils.run_check_failed('rm -rf %s' % self.instance_dir_cs, "rm remote job env failed")
+        fab_utils.run_check_failed('rm -rf %s' % self.instance_dir_cs, 'rm remote job env failed')
 
+        fab_utils.run_check_failed('mkdir -p %s' % self.instance_dir_cs, 'create remote job env failed')
 
-        result = run('rm -rf %s' % self.instance_dir_cs)
-        if result.failed: raise Exception("rm remote job env failed, %s" % result)
-
-        result = run('mkdir -p %s' % self.instance_dir_cs)
-        if result.failed: raise Exception("create remote job env failed, %s" % result)
         self.file_path_cs = '%s/%s' % (self.instance_dir_cs, self.file_name)
 
         result = put(self.file_path_ss, self.file_path_cs)
@@ -73,6 +69,8 @@ class Pushman(object):
     def pre_deploy(self):
         self.upload()
 
+        # TODO: check if already deployed
+
         # disable server from lb
         if self.pre_deploy_desc['disable_service_from_lb']:
             LoadBalancer().disable_service()
@@ -82,30 +80,81 @@ class Pushman(object):
             Monitor().disable()
 
         # execute custom_pre_deploy_script
-        custom_script = self.pre_deploy_desc.get('custom_pre_deploy_script', False)
+        custom_script = self.pre_deploy_desc.get('custom_pre_deploy_script')
         custom_script_path = '%s/%s' % (self.instance_dir_cs, custom_script)
         if custom_script and fab_files.exists(custom_script_path):
-            run('chmod +x %s' % custom_script_path)
-            result = run(custom_script_path)
-            if result.failed: raise Exception("exec custom_pre_deploy_script %s failed, %s" % (custom_script_path, result))
+            # TODO: chmod does not work on windows
+            fab_utils.run_check_failed('chmod +x %s' % custom_script_path, 'chmod x failed')
+            fab_utils.run_check_failed(custom_script_path, 'exec custom_pre_deploy_script failed')
 
         pass
 
     def deploy(self):
-        if self.deploy_desc['shutdown_service']:
-            result = run(self.global_desc['stop_command'])
-            if result.failed: raise Exception("shutdown service failed, %s" % result)
+        if self.deploy_desc['stop_service']:
+           fab_utils.run_check_failed(self.global_desc['stop_command'], 'shutdown service failed')
 
+        # validate install_dir if it is legal
+        protected_dir = ['/', '/usr', '/var', '/boot', '/bin', '/etc']
+        protected_dir.extend(['/home', '/lib64', '/root', '/sys', '/dev'])
+        protected_dir.extend(['/lib', '/mnt', '/proc', '/sbin', '/tmp'])
+        check_slash_depth = 4
+
+        install_dir = self.global_desc['install_dir']
+
+        for i in range(check_slash_depth):
+            if install_dir in [s+'/'*i for s in protected_dir]:
+                raise Exception('illegal install dir %s' % install_dir)
+
+        # backup previous package
         if self.global_desc['backup_previous_package']:
             backup_dir = "%s/%s" % (self.ClientBackupRoot, self.config['id'])
-            result = run("mkdir -p %s" % backup_dir)
-            if result.failed: raise Exception("create backup env failed, %s" % result)
-            result = run("copy -r %s %s" % (self.global_desc['install_dir'], backup_dir))
-            if result.failed: raise Exception("backup previous failed, %s" % result)
+            fab_utils.run_check_failed("mkdir -p %s" % backup_dir, 'create backup env failed')
 
+            fab_utils.run_check_failed("copy -r %s %s" % (self.global_desc['install_dir'], backup_dir),
+                                      'backup previous failed')
+
+        # remove previous package
         if self.global_desc['remove_previous_package']:
             if self.global_desc['install_action'] == 'rpm':
-                package_name = self.global_desc['resour']
+                package_full_name = self.global_desc['resource_update_to'].split('/')[-1]
+                package_name = package_full_name.split('-')[0]
+                fab_utils.run_check_failed('rpm -e %s' % package_name, 'rpm remove previous package failed')
+            else:
+                fab_utils.run_check_failed('rm -rf %s' % install_dir, 'rm previous package failed')
+
+        # install
+        if self.global_desc['install_action'] == 'rpm':
+            if self.deploy_desc['force_install']:
+                extra_param = ' --force --nodeps '
+            else:
+                extra_param = ''
+            fab_utils.run_check_failed('rpm -i %s %s' % (extra_param, self.file_path_cs), 'rpm install failed')
+        else:
+            fab_utils.extract_check_failed(self.file_path_cs, install_dir)
+
+        # update configuration
+        update_config_script = self.deploy_desc.get('update_configuration_script', '').strip()
+        if update_config_script.strip() != '':
+            if os.path.isabs(update_config_script):
+                update_config_script_path = update_config_script
+            else:
+                if self.global_desc['install_action'] == 'rpm':
+                    raise Exception('when install by rpm, update_configuration_script should be a absolute path')
+                update_config_script_path = '%s/%s' % (install_dir, update_config_script)
+
+            fab_utils.run_check_failed(update_config_script_path, 'run update_configuration_script failed')
+
+        # bring up service
+        if self.deploy_desc['stop_service']:
+            if self.deploy_desc['start_service']:
+                fab_utils.run_check_failed(self.global_desc['start_command'], 'start service failed')
+        else:
+            if self.deploy_desc['start_service']:
+                if self.global_desc.get('restart_command'):
+                    fab_utils.run_check_failed(self.global_desc['restart_command'], 'restart service failed')
+                else:
+                    fab_utils.run_check_failed('%s && %s' % (self.global_desc['stop_command'], self.global_desc['start_command']), 'stop of restart service failed')
+
 
         pass
 
@@ -129,7 +178,7 @@ class Pushman(object):
 def handle():
 
 
-    job = job_demo.job
+    job = rpm_job_demo.job
 
     pm = Pushman(job)
 

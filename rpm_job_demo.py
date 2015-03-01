@@ -45,8 +45,8 @@ job = {
 
             'post_deploy_desc': {
                 'custom_post_deploy_script': '', # [应用方提供]
-                'check_proc_alive': ['nginx', 'xxx'],
-                'check_port_alive': [80, 443],
+                'check_proc_alive': ['nginx'],
+                'check_port_alive': [80],
                 'enable_monitoring': True,
                 'enable_service_from_lb': True,
             },

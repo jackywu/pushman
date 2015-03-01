@@ -13,6 +13,7 @@ import fabric.contrib.files as fab_files
 import fab_utils
 import sys
 from log import Log
+from checker import Checker
 
 glog = Log('pushman.log', 'PushMan').open_log()
 
@@ -38,7 +39,7 @@ class Pushman(object):
             if not os.path.exists(self.instance_dir_ss):
                 os.makedirs(self.instance_dir_ss)
         except Exception as e:
-            raise Exception("create job env failed, %s" % e)
+            raise Exception("create server-side job env failed, %s" % e)
 
         self.file_name = resource.split('/')[-1]
         self.file_path_ss = '%s/%s' % (self.instance_dir_ss, self.file_name)
@@ -142,11 +143,11 @@ class Pushman(object):
         else:
             if self.deploy_desc['start_service']:
                 if self.global_desc.get('restart_command'):
-                    fab_utils.run_check_failed(self.global_desc['restart_command'], 
+                    fab_utils.run_check_failed(self.global_desc['restart_command'],
                                                'restart service failed')
                 else:
-                    fab_utils.run_check_failed('%s && %s' % (self.global_desc['stop_command'], 
-                                                             self.global_desc['start_command']), 
+                    fab_utils.run_check_failed('%s && %s' % (self.global_desc['stop_command'],
+                                                             self.global_desc['start_command']),
                                                              'stop of restart service failed')
 
 
@@ -158,6 +159,27 @@ class Pushman(object):
                                     self.global_desc.get('install_dir', ''),
                                     'rpm',
                                     'post_deploy')
+
+
+        # check process alive
+        proc_for_check = self.post_deploy_desc.get('check_proc_alive')
+        if proc_for_check:
+            Checker().check_process(proc_for_check)
+
+
+        # check port alive
+        port_for_check = self.post_deploy_desc.get('check_port_alive')
+        if port_for_check:
+            Checker().check_port(port_for_check)
+
+        # enable monitor
+        if self.post_deploy_desc.get('enable_monitoring'):
+            Monitor().enable()
+
+        # enable server from lb
+        if self.post_deploy_desc.get('enable_service_from_lb'):
+            LoadBalancer().enable_service()
+
 
 
     def do_deploy(self, resource):

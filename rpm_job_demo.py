@@ -8,22 +8,17 @@ job = {
     'desc':
         {
             'global_desc': {
+                # these three item is useless for action, but only for desc
                 'department': 'ad',
                 'server_type': 'web_server',
                 'software_module': 'nginx',
+
                 'resource_update_to': 'http://172.28.128.40/nginx-1.6.2-1.el6.ngx.x86_64.rpm',
                 'resource_rollback_to': 'http://172.28.128.40/nginx-1.6.1-1.el6.ngx.x86_64.rpm',
                 'version_update_to': '',
                 'version_rollback_to': '',
 
                 'auto_rollback': True,
-                'install_dir': '',
-                'install_action': 'rpm',
-
-                'start_command': '/etc/init.d/nginx start',
-                'stop_command': '/etc/init.d/nginx stop',
-                'restart_command': '/etc/init.d/nginx restart',
-                'reload_command': '/etc/init.d/nginx reload',
             },
 
             'pre_deploy_desc': {
@@ -32,14 +27,21 @@ job = {
             },
 
             'deploy_desc': {
+                'install_dir': '',
+                'install_action': 'rpm',
+                'force_install': True,
+
+                'start_command': '/etc/init.d/nginx start',
+                'stop_command': '/etc/init.d/nginx stop',
+                'restart_command': '/etc/init.d/nginx restart',
+                'reload_command': '/etc/init.d/nginx reload',
+
                 'stop_service': True,
+                'backup_previous_package': False,
+                'remove_previous_package': True,
                 'update_configuration_script': '',
                 'custom_deploy_script': '', # [应用方提供]
                 'start_service': True,
-
-                'force_install': True,
-                'backup_previous_package': False,
-                'remove_previous_package': True,
 
             },
 

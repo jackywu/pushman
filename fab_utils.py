@@ -7,7 +7,7 @@ from fabric.operations import run, put
 
 def run_check_failed(cmd, exp):
     if not cmd:
-        raise Exception('command is none')
+        raise Exception('command is empty or none')
 
     with settings(warn_only=True):
         result = run(cmd)
@@ -32,7 +32,7 @@ def extract_check_failed(file_path, install_dir):
 
     with cd(dir_name):
         run_check_failed(cmd, 'extract %s failed' % file_path)
-        run_check_failed('mv package_name %s' % install_dir, 'mv to install_dir %s failed' % install_dir)
+        run_check_failed('mv %s  %s' % (package_name, install_dir), 'mv to install_dir %s failed' % install_dir)
 
 def run_custom_script(script_path='', path_root='', install_action='rpm', stage='deploy'):
     custom_script = script_path.strip()

@@ -36,6 +36,9 @@ class Pushman(object):
         self.post_deploy_desc = self.config['desc']['post_deploy_desc']
 
     def download(self, resource):
+        if self.deploy_desc.get('install_action') == InstallerFactory.FLAG_YUM:
+            return None
+
         self.instance_dir_ss = '%s/%s' % (self.ServerRoot, self.config['id'])
         try:
             if not os.path.exists(self.instance_dir_ss):
@@ -54,6 +57,9 @@ class Pushman(object):
             raise Exception("download package failed, %s" % e)
 
     def upload(self):
+        if self.deploy_desc.get('install_action') == InstallerFactory.FLAG_YUM:
+            return None
+
         self.instance_dir_cs = '%s/%s' % (self.ClientRoot, self.config['id'])
 
         fab_utils.run_check_failed('rm -rf %s' % self.instance_dir_cs, 'rm remote job env failed')
@@ -112,7 +118,7 @@ class Pushman(object):
 
         # init installer
         install_action = self.deploy_desc.get('install_action')
-        if install_action == InstallerFactory.FLAG_RPM:
+        if install_action == InstallerFactory.FLAG_YUM:
             resource = self.global_desc.get('resource_update_to')
         else:
             resource = self.file_path_cs
@@ -144,9 +150,10 @@ class Pushman(object):
                     fab_utils.run_check_failed(self.deploy_desc.get('restart_command'),
                                                'restart service failed')
                 else:
-                    fab_utils.run_check_failed('%s && %s' % (self.deploy_desc.get('stop_command'),
-                                                             self.deploy_desc.get('start_command')),
-                                                             'restart(stop-start) service failed')
+                    cmd = '%s && %s' % (self.deploy_desc.get('stop_command'), self.deploy_desc.get('start_command'))
+                    if cmd.strip() == '&&':
+                        cmd = ''
+                    fab_utils.run_check_failed('%s' % cmd, 'restart(stop-start) service failed')
 
 
         pass

@@ -17,9 +17,9 @@ class BaseInstaller(object):
 
     def check_params(self, params):
     # every param should not be empty or None
-        for k in params:
-            if not k:
-                raise Exception('param should not be empty or None')
+        for k,v in params.items():
+            if not v:
+                raise Exception('param %s should not be empty or None' % k)
 
     def remove_previous(self):
         raise Exception("this method should be implemented in subclass")
@@ -33,9 +33,9 @@ class RpmInstaller(BaseInstaller):
         super(RpmInstaller, self).__init__(**args)
 
     def check_params(self):
-        super(RpmInstaller, self).check_params([
-            self.resource,
-        ])
+        super(RpmInstaller, self).check_params({
+            'resource': self.resource,
+        })
 
     def remove_previous(self):
         package_full_name = os.path.basename(self.resource) # nginx-1.6.1-1.el6.ngx.x86_64.rpm
@@ -60,10 +60,10 @@ class ArchiveInstaller(BaseInstaller):
         super(ArchiveInstaller, self).__init__(**args)
 
     def check_params(self):
-        super(RpmInstaller, self).check_params([
-            self.resource,
-            self.install_dir,
-        ])
+        super(ArchiveInstaller, self).check_params({
+            'resource': self.resource,
+            'install_dir': self.install_dir,
+        })
 
     def remove_previous(self):
         fab_utils.run_check_failed('rm -rf %s' % self.install_dir, 'rm previous package failed')
@@ -83,10 +83,10 @@ class YumInstaller(BaseInstaller):
 
 
     def check_params(self):
-        super(RpmInstaller, self).check_params([
-            self.resource,
-            self.version,
-        ])
+        super(YumInstaller, self).check_params({
+            'resource': self.resource,
+            'version': self.version,
+        })
 
     def remove_previous(self):
         fab_utils.run_check_failed('yum remove -y %s' % self.resource, 'yum remove previous package failed')

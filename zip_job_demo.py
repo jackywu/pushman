@@ -2,19 +2,19 @@
 # -*- coding: UTF-8 -*-
 
 job = {
-    'id': '121',
-    'job_id': '11',
-    'time': 1424915926,
+    'id': '122',
+    'job_id': '12',
+    'time': 1424915927,
     'desc':
         {
             'global_desc': {
                 # these three itemes are useless for action, but only for desc
                 'department': 'ad',
                 'server_type': 'web_server',
-                'software_module': 'nginx',
+                'software_module': 'demo',
 
-                'resource_update_to': 'http://172.28.128.40/nginx-1.6.2-1.el6.ngx.x86_64.rpm',
-                'resource_rollback_to': 'http://172.28.128.40/nginx-1.6.1-1.el6.ngx.x86_64.rpm',
+                'resource_update_to': 'http://172.28.128.40/demo-2.0.zip',
+                'resource_rollback_to': 'http://172.28.128.40/demo-1.0.zip',
                 'version_update_to': '',
                 'version_rollback_to': '',
 
@@ -27,28 +27,28 @@ job = {
             },
 
             'deploy_desc': {
-                'install_dir': '',
-                'install_action': 'rpm',
+                'install_dir': '/usr/local/demo',
+                'install_action': '',
                 'force_install': True,
 
-                'start_command': '/etc/init.d/nginx start',
-                'stop_command': '/etc/init.d/nginx stop',
-                'restart_command': '/etc/init.d/nginx restart',
-                'reload_command': '/etc/init.d/nginx reload',
+                'start_command': '',
+                'stop_command': '',
+                'restart_command': '',
+                'reload_command': '',
 
                 'stop_service': False,
                 'backup_previous_package': False,
                 'remove_previous_package': True,
                 'update_configuration_script': '',
                 'custom_deploy_script': '', # [应用方提供]
-                'start_service': True,
+                'start_service': False,
 
             },
 
             'post_deploy_desc': {
                 'custom_post_deploy_script': '', # [应用方提供]
-                'check_proc_alive': ['nginx'],
-                'check_port_alive': [80],
+                'check_proc_alive': [],
+                'check_port_alive': [],
                 'enable_monitoring': True,
                 'enable_service_from_lb': True,
             },

@@ -8,7 +8,7 @@ job = {
     'desc':
         {
             'global_desc': {
-                # these three item is useless for action, but only for desc
+                # these three itemes are useless for action, but only for desc
                 'department': 'ad',
                 'server_type': 'web_server',
                 'software_module': 'nginx',
@@ -36,7 +36,7 @@ job = {
                 'restart_command': '/etc/init.d/nginx restart',
                 'reload_command': '/etc/init.d/nginx reload',
 
-                'stop_service': True,
+                'stop_service': False,
                 'backup_previous_package': False,
                 'remove_previous_package': True,
                 'update_configuration_script': '',

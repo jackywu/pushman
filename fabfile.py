@@ -9,6 +9,7 @@ from fabric.operations import run, put
 from fabric.api import local, settings, abort, env
 from lb import LoadBalancer
 from monitor import Monitor
+from installer import InstallerFactory
 import fabric.contrib.files as fab_files
 import fab_utils
 import sys
@@ -27,6 +28,8 @@ class Pushman(object):
     ClientBackupRoot = ROOT + '/backup'
 
     def __init__(self, config):
+        self.resource = ''
+        self.version = ''
         self.config = config
         self.global_desc = self.config['desc']['global_desc']
         self.pre_deploy_desc = self.config['desc']['pre_deploy_desc']
@@ -64,8 +67,9 @@ class Pushman(object):
         if result.failed: raise Exception("upload files to remote failed, %s" % result)
 
 
-    def prepare(self, resource):
+    def prepare(self, resource, version):
         self.download(resource)
+        self.version = version
 
 
     def pre_deploy(self):
@@ -107,28 +111,23 @@ class Pushman(object):
             fab_utils.run_check_failed("copy -r %s %s" % (install_dir, backup_dir),
                                       'backup previous package failed')
 
+        # init installer
+        install_action = self.deploy_desc.get('install_action')
+        if install_action == InstallerFactory.FLAG_RPM:
+            resource = self.global_desc.get('resource_update_to')
+        else:
+            resource = self.file_path_cs
+
+        installer = InstallerFactory(resource, self.version,
+                                     install_action, install_dir,
+                                     self.deploy_desc.get('force_install')).config()
+
         # remove previous package
         if self.deploy_desc.get('remove_previous_package'):
-            if self.deploy_desc['install_action'] == 'rpm':
-                package_full_name = self.global_desc['resource_update_to'].split('/')[-1] # nginx-1.6.1-1.el6.ngx.x86_64.rpm
-                package_name = package_full_name.split('-')[0] # nginx
-                package_prefix = package_name.rstrip('.rpm') # nginx-1.6.1-1.el6.ngx.x86_64
-
-                # package does exist and remove it
-                if run('rpm -q --quiet %s' % package_prefix).succeeded:
-                    fab_utils.run_check_failed('rpm -e %s' % package_name, 'rpm remove previous package failed')
-            else:
-                fab_utils.run_check_failed('rm -rf %s' % install_dir, 'rm previous package failed')
+            installer.remove_previous()
 
         # install
-        if self.deploy_desc['install_action'] == 'rpm':
-            if self.deploy_desc.get('force_install'):
-                extra_param = ' --force --nodeps '
-            else:
-                extra_param = ''
-            fab_utils.run_check_failed('rpm -U %s %s' % (extra_param, self.file_path_cs), 'rpm install failed')
-        else:
-            fab_utils.extract_check_failed(self.file_path_cs, install_dir)
+        installer.install()
 
         # update configuration
         fab_utils.run_custom_script(self.deploy_desc.get('update_configuration_script', ''),
@@ -148,7 +147,7 @@ class Pushman(object):
                 else:
                     fab_utils.run_check_failed('%s && %s' % (self.deploy_desc.get('stop_command'),
                                                              self.deploy_desc.get('start_command')),
-                                                             'stop of restart service failed')
+                                                             'restart(stop-start) service failed')
 
 
         pass
@@ -182,19 +181,21 @@ class Pushman(object):
 
 
 
-    def do_deploy(self, resource):
-        self.prepare(resource)
+    def do_deploy(self, resource, version):
+        self.prepare(resource, version)
         self.pre_deploy()
         self.deploy()
         self.post_deploy()
 
     def update(self):
         resource = self.global_desc['resource_update_to']
-        self.do_deploy(resource)
+        version = self.global_desc['version_update_to']
+        self.do_deploy(resource, version)
 
     def rollback(self):
         resource = self.global_desc['resource_rollback_to']
-        self.do_deploy(resource)
+        version = self.global_desc['version_rollback_to']
+        self.do_deploy(resource, version)
 
 def handle(action='update'):
     allowed_action = ['update', 'rollback']

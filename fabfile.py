@@ -4,7 +4,6 @@
 from __future__ import with_statement
 import os
 import urllib2
-import rpm_job_demo
 from fabric.operations import run, put
 from fabric.api import local, settings, abort, env
 from lb import LoadBalancer
@@ -197,14 +196,27 @@ class Pushman(object):
         version = self.global_desc['version_rollback_to']
         self.do_deploy(resource, version)
 
-def handle(action='update'):
+def handle(action='update', desc_file=''):
     allowed_action = ['update', 'rollback']
     if action not in allowed_action:
         sys.exit('action %s is illegal, allowed action are %s' % (action, allowed_action))
 
-    job = rpm_job_demo.job
+    if desc_file.endswith('.py'):
+        file_name = desc_file
+        module_name = desc_file.rstrip('.py')
+    else:
+        file_name = '%s.py' % desc_file
+        module_name = desc_file
 
-    pm = Pushman(job)
+    if not os.path.exists(file_name):
+        sys.exit('desc file does not exist')
+
+    sys.path.append('.')
+    module = __import__(module_name)
+
+    job_desc = module.job
+
+    pm = Pushman(job_desc)
 
     try:
         if action == 'update':
@@ -212,7 +224,7 @@ def handle(action='update'):
         elif action == 'rollback':
             pm.rollback()
     except Exception as e:
-        if job['desc']['global_desc']['auto_rollback']:
+        if job_desc['desc']['global_desc']['auto_rollback']:
             pm.rollback()
 
 
